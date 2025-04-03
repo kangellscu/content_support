@@ -8,6 +8,12 @@ import re
 import random
 import pandas as pd
 
+"""
+    此文件的主要功能是爬取微信公众号文章，并将文章内容保存为PDF文件。
+    核心意图是从指定的Excel文件中读取文章链接，对这些链接对应的文章进行信息提取和保存操作。
+    Excel文件：data/wechat_urls.xlsx
+    保存目录：data/wechat_files/账号/日期_文章标题.pdf
+"""
 
 async def crawl_wechat_article(urls):
     """
