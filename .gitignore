@@ -1,0 +1,11 @@
+.venv/
+.logs/
+.idea/
+__pycache__/
+*.pyc
+*.pyd
+.DS_Store
+*.pyc
+.~lock*
+.env
+todo_list.txt
