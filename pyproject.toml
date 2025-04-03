@@ -1,6 +1,7 @@
 [tool.poetry]
 name = "content-spport"
 version = "0.1.0"
+packages = []
 description = ""
 authors = ["leikou <leikou@163.com>"]
 readme = "README.md"
