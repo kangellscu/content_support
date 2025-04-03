@@ -8,7 +8,12 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.11"
 dashscope = "^1.23.0"
+playwright = "^1.51.0"
 
+[[tool.poetry.source]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+priority = "primary"
 
 [build-system]
 requires = ["poetry-core"]
