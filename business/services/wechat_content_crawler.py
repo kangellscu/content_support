@@ -21,7 +21,7 @@ async def crawl_wechat_article(url):
         }
         page = await browser.new_page(extra_http_headers=headers)
         await asyncio.sleep(random.uniform(1, 3))
-        await page.goto(url, wait_until='domcontentloaded')
+        await page.goto(url, wait_until='load')
         await asyncio.sleep(random.uniform(1, 3))
         # 模拟滚动
         await page.evaluate('window.scrollBy(0, window.innerHeight/2);')
@@ -69,6 +69,15 @@ async def crawl_wechat_article(url):
         # 生成PDF文件名
         pdf_filename = f'{date}_{title}.pdf'
         pdf_path = os.path.join(pdf_dir, pdf_filename)
+
+        # 缓慢滚动页面到最后
+        scroll_height = await page.evaluate('document.body.scrollHeight')
+        for i in range(0, scroll_height, 100):
+            await page.evaluate(f'window.scrollTo(0, {i});')
+            await asyncio.sleep(random.uniform(0.1, 0.3))
+
+        # 等待同时满足img标签且class包含rich_pages和wxw-img的元素加载完成
+        await page.wait_for_selector('img.rich_pages.wxw-img')
 
         # 保存文章为PDF
         await page.pdf(path=pdf_path)
