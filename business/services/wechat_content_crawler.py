@@ -6,6 +6,7 @@ from playwright.async_api import async_playwright
 import os
 import re
 import random
+import pandas as pd
 
 
 async def crawl_wechat_article(urls):
@@ -17,7 +18,7 @@ async def crawl_wechat_article(urls):
     semaphore = asyncio.Semaphore(3)
     async def process_url(url):
         async with semaphore:
-            root_dir = '/Users/kangell/projects/23mf-ai/content-spport'
+            # root_dir = '/Users/kangell/projects/23mf-ai/content-spport'
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=False)
                 headers = {
@@ -100,11 +101,20 @@ async def crawl_wechat_article(urls):
 
 
 if __name__ == '__main__':
-    urls = [
-        'https://mp.weixin.qq.com/s/L3xoSbxRDEjKiJHN4j8BFw',
-        'https://mp.weixin.qq.com/s/aOFHzG1buV3aKniUaoi2zg',
-        'https://mp.weixin.qq.com/s/Bfrx2o5-0cWfbBzRYzA3Ug',
-        'https://mp.weixin.qq.com/s/Xeckqg0a1TvZHikQaChcrQ',
-    ]
+    root_dir = '/Users/kangell/projects/23mf-ai/content-spport'
+    data_dir = os.path.join(root_dir, 'data')
+    excel_file_path = os.path.join(data_dir, 'wechat_urls.xlsx')
+    try:
+        # 直接读取Excel文件
+        df = pd.read_excel(excel_file_path)
+        # 提取文章链接
+        urls = df['文章链接'].tolist()
+    except FileNotFoundError:
+        print(f'未找到文件 {excel_file_path}')
+        urls = []
+    except KeyError:
+        print('Excel文件中未找到指定的链接列名')
+        urls = []
+
     result = asyncio.run(crawl_wechat_article(urls))
     print(result)
