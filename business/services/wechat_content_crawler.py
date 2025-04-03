@@ -9,6 +9,11 @@ import random
 
 
 async def crawl_wechat_article(url):
+    """
+    爬取微信公众号文章
+    :param url: 文章链接
+    :return: 文章信息字典
+    """
     root_dir = '/Users/kangell/projects/23mf-ai/content-spport'
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=False)
@@ -20,16 +25,14 @@ async def crawl_wechat_article(url):
             ])
         }
         page = await browser.new_page(extra_http_headers=headers)
-        await asyncio.sleep(random.uniform(1, 3))
         await page.goto(url, wait_until='load')
-        await asyncio.sleep(random.uniform(1, 3))
+        await asyncio.sleep(random.uniform(1, 2))
         # 模拟滚动
         await page.evaluate('window.scrollBy(0, window.innerHeight/2);')
-        await asyncio.sleep(random.uniform(1, 3))
+        await asyncio.sleep(random.uniform(1, 2))
         # 模拟点击
         try:
             await page.click('body', force=True)
-            await asyncio.sleep(random.uniform(1, 3))
         except Exception:
             pass
         await page.wait_for_selector('h1#activity-name')
