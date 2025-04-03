@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "content-spport"
+version = "0.1.0"
+description = ""
+authors = ["leikou <leikou@163.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+dashscope = "^1.23.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
