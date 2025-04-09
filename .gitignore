@@ -10,7 +10,7 @@ __pycache__/
 .~lock*
 .env
 todo_list.txt
-data/*
-!data/
+datas/*
+!datas/
 datas/*
 !datas/

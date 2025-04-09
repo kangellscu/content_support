@@ -13,8 +13,8 @@ import tqdm
 """
     此文件的主要功能是爬取微信公众号文章，并将文章内容保存为PDF文件。
     核心意图是从指定的Excel文件中读取文章链接，对这些链接对应的文章进行信息提取和保存操作。
-    Excel文件：data/wechat_urls.xlsx
-    保存目录：data/wechat_files/账号/日期_文章标题.pdf
+    Excel文件：datas/wechat_urls.xlsx
+    保存目录：datas/wechat_files/账号/日期_文章标题.pdf
 """
 
 async def crawl_wechat_article(urls):
@@ -76,8 +76,8 @@ async def crawl_wechat_article(urls):
                     'date': date
                 }
 
-                # 检查data目录是否存在，若不存在则抛出异常
-                data_dir = os.path.join(config.root_dir, 'data')
+                # 检查datas目录是否存在，若不存在则抛出异常
+                data_dir = os.path.join(config.root_dir, 'datas')
                 if not os.path.exists(data_dir):
                     raise FileNotFoundError(f'目录 {data_dir} 不存在')
 
@@ -116,7 +116,7 @@ def run():
     :return: 文章信息字典
     """
     # 读取Excel文件中的链接
-    data_dir = os.path.join(config.root_dir, 'data')
+    data_dir = os.path.join(config.root_dir, 'datas')
     excel_file_path = os.path.join(data_dir, 'wechat_urls.xlsx')
     try:
         # 直接读取Excel文件
