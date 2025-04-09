@@ -14,13 +14,13 @@ sh init.sh
 ## 3. 如何执行任务
 在项目根目录下执行以下命令：
 ```bash
-poetry run command_line_tool.py [task]
+poetry run python command_line_tool.py [task]
 ```
 例如，要执行`task1`任务，可以执行以下命令：
 ```bash
-poetry run command_line_tool.py task1
+poetry run python command_line_tool.py task1
 ``` 
 查看帮助信息：
 ```bash
-poetry run command_line_tool.py -h
+poetry run python command_line_tool.py -h
 ```
