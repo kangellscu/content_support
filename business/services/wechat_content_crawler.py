@@ -7,7 +7,7 @@ import os
 import re
 import random
 import pandas as pd
-import config
+from config import config
 
 """
     此文件的主要功能是爬取微信公众号文章，并将文章内容保存为PDF文件。
@@ -25,7 +25,6 @@ async def crawl_wechat_article(urls):
     semaphore = asyncio.Semaphore(3)
     async def process_url(url):
         async with semaphore:
-            # root_dir = '/Users/kangell/projects/23mf-ai/content-spport'
             async with async_playwright() as p:
                 browser = await p.chromium.launch(headless=False)
                 headers = {
@@ -76,7 +75,7 @@ async def crawl_wechat_article(urls):
                 }
 
                 # 检查data目录是否存在，若不存在则抛出异常
-                data_dir = os.path.join(root_dir, 'data')
+                data_dir = os.path.join(config.root_dir, 'data')
                 if not os.path.exists(data_dir):
                     raise FileNotFoundError(f'目录 {data_dir} 不存在')
 
@@ -107,9 +106,13 @@ async def crawl_wechat_article(urls):
     return results
 
 
-if __name__ == '__main__':
-    root_dir = '/Users/kangell/projects/23mf-ai/content-spport'
-    data_dir = os.path.join(root_dir, 'data')
+def run():
+    """
+    爬取微信公众号文章
+    :return: 文章信息字典
+    """
+    # 读取Excel文件中的链接
+    data_dir = os.path.join(config.root_dir, 'data')
     excel_file_path = os.path.join(data_dir, 'wechat_urls.xlsx')
     try:
         # 直接读取Excel文件
@@ -124,4 +127,10 @@ if __name__ == '__main__':
         urls = []
 
     result = asyncio.run(crawl_wechat_article(urls))
+    return result
+
+
+
+if __name__ == '__main__':
+    result = run()
     print(result)

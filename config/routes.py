@@ -1,1 +1,1 @@
-routes = [('wechat-file-2-pdf', 'business.services.wechat_content_crawler.crawl_wechat_article.run')]
+routes = [('wechat-file-2-pdf', 'business.services.wechat_content_crawler.run', '根据Excel文件中的链接爬取微信公众号文章，并保存为PDF文件。')]
