@@ -8,6 +8,7 @@ import re
 import random
 import pandas as pd
 from config import config
+import tqdm
 
 """
     此文件的主要功能是爬取微信公众号文章，并将文章内容保存为PDF文件。
@@ -23,6 +24,7 @@ async def crawl_wechat_article(urls):
     :return: 文章信息字典
     """
     semaphore = asyncio.Semaphore(3)
+    progress_bar = tqdm.tqdm(total=len(urls), desc='Processing URLs', unit='url')
     async def process_url(url):
         async with semaphore:
             async with async_playwright() as p:
@@ -100,9 +102,11 @@ async def crawl_wechat_article(urls):
                 await page.pdf(path=pdf_path)
 
                 await browser.close()
+                progress_bar.update(1)
                 return article_info
     tasks = [process_url(url) for url in urls]
     results = await asyncio.gather(*tasks)
+    progress_bar.close()
     return results
 
 
