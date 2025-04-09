@@ -1,0 +1,1 @@
+routes = [('wechat-file-2-pdf', 'business.services.wechat_content_crawler.crawl_wechat_article.run')]

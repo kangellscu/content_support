@@ -7,6 +7,7 @@ import os
 import re
 import random
 import pandas as pd
+import config
 
 """
     此文件的主要功能是爬取微信公众号文章，并将文章内容保存为PDF文件。
