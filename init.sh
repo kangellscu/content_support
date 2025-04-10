@@ -24,6 +24,9 @@ if ! command -v poetry &> /dev/null
     echo "Poetry已安装，无需执行。"
   fi
 
+# 确保虚拟环境在项目目录中
+poetry config virtualenvs.in-project true
+
 # 检查虚拟环境是否已经建立
 echo "开始检查虚拟环境是否已经建立..."
 if [ ! -d ".venv" ]; then
