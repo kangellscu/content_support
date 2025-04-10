@@ -23,7 +23,7 @@ async def crawl_wechat_article(urls):
     :param url: 文章链接
     :return: 文章信息字典
     """
-    semaphore = asyncio.Semaphore(3)
+    semaphore = asyncio.Semaphore(config.parallel_num)
     progress_bar = tqdm.tqdm(total=len(urls), desc='Processing URLs', unit='url')
     async def process_url(url):
         async with semaphore:

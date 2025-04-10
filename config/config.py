@@ -6,3 +6,4 @@ import os
 load_dotenv()
 
 root_dir = os.environ.get('ROOT_DIR')
+parallel_num = int(os.environ.get('PARALLEL_NUM'))
