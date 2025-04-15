@@ -10,7 +10,8 @@ __pycache__/
 .~lock*
 .env
 todo_list.txt
+tmp/*
+!tmp/
 datas/*
 !datas/
-datas/*
-!datas/
+.vscode/
