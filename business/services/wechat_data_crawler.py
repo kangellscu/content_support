@@ -96,10 +96,6 @@ class WechatDataFetcher:
         self.page.click('text=数据分析')
         # 随机等待
         time.sleep(random.uniform(0.5, 3))
-        # 随机滚动
-        scroll_distance = random.randint(100, 500)
-        self.page.evaluate(f'window.scrollBy(0, {scroll_distance});')
-
         self.page.click('text=内容分析')
         # 随机等待
         time.sleep(random.uniform(0.5, 3))
@@ -123,19 +119,23 @@ class WechatDataFetcher:
         self._wait_for_download(lambda: first_download_link.click(), self.tmp_data_dir / 'traffic_data.xlsx')
 
     def download_article_7d_data(self):
-        self.page.click('text=已通知内容')
+        # 检查“内容分析”是否可见
+        if not self.page.is_visible('text=内容分析'):
+            self.page.click('text=数据分析')
+            time.sleep(random.uniform(0.5, 3))
+        self.page.click('text=内容分析')
         # 随机等待
         time.sleep(random.uniform(0.5, 3))
-        # 随机滚动
-        scroll_distance = random.randint(100, 500)
-        self.page.evaluate(f'window.scrollBy(0, {scroll_distance});')
-        # 随机点击
-        clickable_elements = self.page.query_selector_all('button, a')
-        if clickable_elements:
-            random_element = random.choice(clickable_elements)
-            random_element.click(force=True)
-            time.sleep(random.uniform(0.5, 3))
-        self._wait_for_download(lambda: self.page.click('text=下载数据明细'), self.tmp_data_dir / 'article_7d_data.xlsx')
+        # 直接点击"已通知内容"的a标签
+        self.page.click('a:has-text("已通知内容")')
+        # 等待“下载明细数据”a标签可见
+        self.page.wait_for_selector('a:has-text("下载数据明细")', state='visible')
+
+        # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
+        date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
+        _pick_date(self.begin_date, self.end_date, self.page, date_picker_parent)
+
+        self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / 'article_7d_data.xlsx')
 
     def download_specific_article_data(self):
         self.page.click('text=详情')
