@@ -137,23 +137,64 @@ class WechatDataFetcher:
 
         self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / 'article_7d_data.xlsx')
 
-    def download_specific_article_data(self):
-        self.page.click('text=详情')
+    def download_article_detail_data(self):
+        # 检查“内容分析”是否可见
+        if not self.page.is_visible('text=内容分析'):
+            self.page.click('text=数据分析')
+            time.sleep(random.uniform(0.5, 3))
+        self.page.click('text=内容分析')
         # 随机等待
         time.sleep(random.uniform(0.5, 3))
-        # 随机滚动
-        scroll_distance = random.randint(100, 500)
-        self.page.evaluate(f'window.scrollBy(0, {scroll_distance});')
-        # 随机点击
-        clickable_elements = self.page.query_selector_all('button, a')
-        if clickable_elements:
-            random_element = random.choice(clickable_elements)
-            random_element.click(force=True)
-            pendulum.sleep(random.uniform(0.5, 3))
-        self._wait_for_download(lambda: self.page.click('text=下载数据明细'), self.tmp_data_dir / 'specific_article_data.xlsx')
+        # 直接点击"已通知内容"的a标签
+        self.page.click('a:has-text("已通知内容")')
+        # 确保class="weui-desktop-table"的表格加载
+        self.page.wait_for_selector('table.weui-desktop-table', state='visible')
+
+        # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
+        date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
+        _pick_date(self.begin_date, self.end_date, self.page, date_picker_parent)
         
-    def _wait_for_download(self, click_action, path=None, timeout=60):
-        with self.page.expect_download() as download_info:
+        # 等待表格重新加载完成
+        self.page.wait_for_selector('table.weui-desktop-table', state='attached')
+        time.sleep(1)  # 额外等待1秒确保完全加载
+        
+        table = self.page.query_selector('table.weui-desktop-table')
+        rows = table.query_selector_all('tbody tr')  # 只获取tbody中的tr元素
+        for row in rows:
+            a_tag = row.query_selector('a:has-text("详情")')
+            if not a_tag:
+                continue
+
+            while not a_tag.is_visible():
+                self.page.evaluate('window.scrollBy(0, 100);')
+                time.sleep(0.5)
+
+            # 打开详情链接，会新开标签页
+            with self.page.context.expect_page() as new_page_info:
+                a_tag.click()
+            new_page = new_page_info.value
+            # 等待新页面加载完成
+            new_page.wait_for_load_state()
+            
+            try:
+                # 在新页面中等待下载链接可见
+                new_page.wait_for_selector('a:has-text("下载数据明细")', state='visible')
+                # 获取文章标题
+                title = new_page.text_content('//div[contains(@class, "top_title")]//span[contains(@class, "weui-desktop-breadcrum")]')
+                # 随机等待
+                time.sleep(random.uniform(0.5, 3))
+                # 在新页面中点击下载
+                self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / f'{title}.xlsx', new_page)
+            finally:
+                # 关闭新标签页并切换回原页面
+                new_page.close()
+                self.page.bring_to_front()
+
+        
+    def _wait_for_download(self, click_action, path=None, page=None, timeout=60):
+        if page is None:
+            page = self.page
+        with page.expect_download() as download_info:
             click_action()
         download = download_info.value
         if path is None:
@@ -210,9 +251,9 @@ class WechatDataPipeline:
         return self
 
     def download_all_data(self):
-        self.fetcher.download_traffic_data()
-        self.fetcher.download_article_7d_data()
-        #self.fetcher.download_specific_article_data()
+        #self.fetcher.download_traffic_data()
+        #self.fetcher.download_article_7d_data()
+        self.fetcher.download_article_detail_data()
         self.fetcher.browser.close()
         return self
 
