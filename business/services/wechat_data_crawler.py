@@ -154,41 +154,56 @@ class WechatDataFetcher:
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
         _pick_date(self.begin_date, self.end_date, self.page, date_picker_parent)
         
-        # 等待表格重新加载完成
-        self.page.wait_for_selector('table.weui-desktop-table', state='attached')
-        time.sleep(1)  # 额外等待1秒确保完全加载
-        
-        table = self.page.query_selector('table.weui-desktop-table')
-        rows = table.query_selector_all('tbody tr')  # 只获取tbody中的tr元素
-        for row in rows:
-            a_tag = row.query_selector('a:has-text("详情")')
-            if not a_tag:
-                continue
-
-            while not a_tag.is_visible():
-                self.page.evaluate('window.scrollBy(0, 100);')
-                time.sleep(0.5)
-
-            # 打开详情链接，会新开标签页
-            with self.page.context.expect_page() as new_page_info:
-                a_tag.click()
-            new_page = new_page_info.value
-            # 等待新页面加载完成
-            new_page.wait_for_load_state()
+        def process_articles():
+            """处理文章表格数据，包括等待表格加载和处理每行数据"""
+            # 等待表格加载完成
+            self.page.wait_for_selector('table.weui-desktop-table', state='attached')
+            time.sleep(1)  # 额外等待1秒确保完全加载
             
-            try:
-                # 在新页面中等待下载链接可见
-                new_page.wait_for_selector('a:has-text("下载数据明细")', state='visible')
-                # 获取文章标题
-                title = new_page.text_content('//div[contains(@class, "top_title")]//span[contains(@class, "weui-desktop-breadcrum")]')
-                # 随机等待
-                time.sleep(random.uniform(0.5, 3))
-                # 在新页面中点击下载
-                self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / f'{title}.xlsx', new_page)
-            finally:
-                # 关闭新标签页并切换回原页面
-                new_page.close()
-                self.page.bring_to_front()
+            table = self.page.query_selector('table.weui-desktop-table')
+            rows = table.query_selector_all('tbody tr')  # 只获取tbody中的tr元素
+            
+            for row in rows:
+                a_tag = row.query_selector('a:has-text("详情")')
+                if not a_tag:
+                    continue
+
+                while not a_tag.is_visible():
+                    self.page.evaluate('window.scrollBy(0, 100);')
+                    time.sleep(0.5)
+
+                # 打开详情链接，会新开标签页
+                with self.page.context.expect_page() as new_page_info:
+                    a_tag.click()
+                new_page = new_page_info.value
+                # 等待新页面加载完成
+                new_page.wait_for_load_state()
+                
+                try:
+                    # 在新页面中等待下载链接可见
+                    new_page.wait_for_selector('a:has-text("下载数据明细")', state='visible')
+                    # 获取文章标题
+                    title = new_page.text_content('//div[contains(@class, "top_title")]//span[contains(@class, "weui-desktop-breadcrum")]')
+                    # 随机等待
+                    time.sleep(random.uniform(0.5, 3))
+                    # 在新页面中点击下载
+                    self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / f'{title}.xlsx', new_page)
+                finally:
+                    # 关闭新标签页并切换回原页面
+                    new_page.close()
+                    self.page.bring_to_front()
+
+        # 执行文章处理
+        process_articles()
+
+        # 处理分页，检查“下一页”按钮是否存在，且可见，则点击下一页，然后滚动到顶部，处理文章
+        while self.page.is_visible('a:has-text("下一页")'):
+            self.page.click('a:has-text("下一页")')
+            time.sleep(random.uniform(1, 3))
+            # 滚动到顶部
+            self.page.evaluate('window.scrollTo(0, 0);')
+            # 处理文章
+            process_articles()
 
         
     def _wait_for_download(self, click_action, path=None, page=None, timeout=60):
