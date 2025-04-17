@@ -29,6 +29,10 @@ class Locker:
         lock_dir = self.file_name.parent
         if not lock_dir.exists():
             lock_dir.mkdir(parents=True, exist_ok=True)
+        # 使用a+模式打开文件，如果文件不存在则自动创建
+        self.file = open(str(self.file_name), 'a+')
+        # 切换到r+模式以便后续读写操作
+        self.file.close()
         self.file = open(str(self.file_name), 'r+')
         try:
             fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)

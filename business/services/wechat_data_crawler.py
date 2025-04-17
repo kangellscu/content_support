@@ -64,6 +64,7 @@ from playwright.sync_api import sync_playwright
 import random
 from pathlib import Path
 from config import config
+from tools.locker import Locker
 import pendulum
 import re
 import time
@@ -71,21 +72,28 @@ import shutil
 
 class WechatDataFetcher:
 
-    def __init__(self, p, begin_date=None, end_date=None):
+    def __init__(self, begin_date=None, end_date=None):
         self.browser = None
         self.page = None
-        self.p = p
-        if begin_date is None:
-            self.begin_date = pendulum.now() - pendulum.duration(days=30)  # 最多2个月的数据
-        else:
-            self.begin_date = begin_date
-        if end_date is None:
+        self.begin_date = begin_date
+        self.end_date = end_date
+        self.tmp_data_dir = Path(config.root_dir) / 'tmp/data/wechat'
+        self.account_name = None
+        self.lock_file_name = "wechat_operation_data.lock"
+
+    def prepare(self):
+        """
+        准备工作, 
+        1. 初始化结束日期, 开始日期需要检查locker文件, 由于当前尚未登录，无法获知账号名称，因此无法获取开始日期。
+            因此, 开始日期在登录后, 调用cal_begin_date方法计算。
+        2. 清空tmp_data_dir目录下的文件
+        """
+        # 初始化结束日期范围
+        if self.end_date is None:
             self.end_date = pendulum.now() - pendulum.duration(days=1)
         else:
             self.end_date = end_date
-        self.tmp_data_dir = Path(config.root_dir) / 'tmp/data/wechat'
 
-    def login(self, remember=True):
         # 确保self.tmp_data_dir存在
         if not self.tmp_data_dir.exists():
             self.tmp_data_dir.mkdir(parents=True)
@@ -95,7 +103,8 @@ class WechatDataFetcher:
                 item.unlink()
             elif item.is_dir():
                 shutil.rmtree(item)
-                
+
+    def login(self, remember=True):               
         session_dir = Path(config.root_dir) / 'tmp/session/wechat/'
         if not session_dir.exists():
             session_dir.mkdir(parents=True)
@@ -107,8 +116,9 @@ class WechatDataFetcher:
             'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:54.0) Gecko/20100101 Firefox/54.0',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36'
         ]
-        
-        self.browser = self.p.chromium.launch(headless=False, downloads_path=self.tmp_data_dir)
+
+        p = sync_playwright().start()
+        self.browser = p.chromium.launch(headless=False, downloads_path=self.tmp_data_dir)
         headers = {'User-Agent': random.choice(user_agents)}
         
         # 根据是否记住登录状态创建不同的上下文
@@ -134,14 +144,48 @@ class WechatDataFetcher:
         scroll_distance = random.randint(100, 500)
         self.page.evaluate(f'window.scrollBy(0, {scroll_distance});')
                 
-    def get_account_name(self):
+    def fetch_account_name(self):
         """
         账号名称在导航栏最下方
         """
         self.page.wait_for_selector('div.account_box-body > span.acount_box-nickname')
         account_name = self.page.text_content('div.account_box-body > span.acount_box-nickname')
-        print(account_name)
-        return account_name.strip()
+        self.account_name = account_name.strip()
+
+    def cal_begin_date(self):
+        """
+        计算开始日期，逻辑如下：
+        1. 如果self.begin_date is not None, 则返回self.begin_date
+        2. 使用Locker获取锁, 读取tmp/locks/wechat_operation_data.lock文件, 根据self.account_name, 获取value
+        3. 如果value is not None, 则返回value
+        4. 如果value is None, 则返回self.begin_date距离昨天30日前的日期
+        """
+        if self.begin_date is not None:
+            return self.begin_date
+        # 读取tmp/locks/wechat_operation_data.lock文件, 根据self.account_name, 获取value
+        with Locker(self.lock_file_name) as lock_file:
+            data = lock_file.get()
+            last_download_date = data.get(self.account_name, None)
+        # 如果last_download_date is not None, 其格式为'2023-01-01', 转化为pendulum.date对象
+        if last_download_date is not None:
+            return pendulum.from_format(last_download_date, 'YYYY-MM-DD')
+        # 如果last_download_date is None, 则返回self.begin_date距离昨天30日前的日期
+        return pendulum.now() - pendulum.duration(days=30) 
+
+    def download_all(self):
+        self.prepare()
+        self.login()
+        self.fetch_account_name()
+        self.download_traffic_data()
+        self.download_article_7d_data()
+        self.download_article_detail_data()
+        self.browser.close()
+
+        # 清理，获取账号名称，更新locker文件，值为今天的日期，使用pendulum处理，格式为'2023-01-01'
+        with Locker(self.lock_file_name) as lock_file:
+            data = lock_file.get()
+            data[self.account_name] = pendulum.now().format('YYYY-MM-DD')
+            lock_file.set(data)
 
     def download_traffic_data(self):
         self.page.click('text=数据分析')
@@ -164,9 +208,8 @@ class WechatDataFetcher:
         self.page.wait_for_selector('text=下载数据明细', state='visible')
         time.sleep(random.uniform(0.5, 2))  # 随机等待确保元素完全可见
 
-        print(self.begin_date.strftime('%Y-%m-%d'), self.end_date.strftime('%Y-%m-%d'))
-        # 根据self.begin_date和self.end_date来选择下载的日期范围
-        _pick_date(self.begin_date, self.end_date, self.page, self.page.query_selector('//form[@class="mass_all_filter"]'))
+        # 根据self.cal_begin_date()和self.end_date来选择下载的日期范围
+        _pick_date(self.cal_begin_date(), self.end_date, self.page, self.page.query_selector('//form[@class="mass_all_filter"]'))
         self._wait_for_download(lambda: first_download_link.click(), self.tmp_data_dir / 'traffic_data.xlsx')
 
     def download_article_7d_data(self):
@@ -184,7 +227,7 @@ class WechatDataFetcher:
 
         # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
-        _pick_date(self.begin_date, self.end_date, self.page, date_picker_parent)
+        _pick_date(self.cal_begin_date(), self.end_date, self.page, date_picker_parent)
 
         self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / 'article_7d_data.xlsx')
 
@@ -203,7 +246,7 @@ class WechatDataFetcher:
 
         # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
-        _pick_date(self.begin_date, self.end_date, self.page, date_picker_parent)
+        _pick_date(self.cal_begin_date(), self.end_date, self.page, date_picker_parent)
         
         def process_articles():
             """处理文章表格数据，包括等待表格加载和处理每行数据"""
@@ -236,7 +279,7 @@ class WechatDataFetcher:
                     # 获取文章标题
                     title = new_page.text_content('//div[contains(@class, "top_title")]//span[contains(@class, "weui-desktop-breadcrum")]')
                     # 随机等待
-                    time.sleep(random.uniform(0.5, 3))
+                    time.sleep(random.uniform(1, 5))
                     # 在新页面中点击下载
                     self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / f'{title}.xlsx', new_page)
                 finally:
@@ -304,23 +347,19 @@ class WechatDataPipeline:
 
     def __init__(self, begin_date=None, end_date=None):
         self.analyzer = None
-        self.p = sync_playwright().start()
-        self.fetcher = WechatDataFetcher(self.p, begin_date, end_date)
+        self.fetcher = WechatDataFetcher(begin_date, end_date)
 
     def login(self):
         self.fetcher.login()
         return self
 
-    def get_account_name(self):
-        account_name = self.fetcher.get_account_name()
+    def fetch_account_name(self):
+        account_name = self.fetcher.fetch_account_name()
         self.analyzer = WechatDataAnalyzer(account_name)
         return self
 
-    def download_all_data(self):
-        #self.fetcher.download_traffic_data()
-        #self.fetcher.download_article_7d_data()
-        self.fetcher.download_article_detail_data()
-        self.fetcher.browser.close()
+    def download_all(self):
+        self.fetcher.download_all()
         return self
 
     def process_data(self):
@@ -425,7 +464,7 @@ def _pick_date(begin: pendulum.DateTime, end: pendulum.DateTime, page, parent):
 
 def run():
     pipeline = WechatDataPipeline()
-    pipeline.login().get_account_name().download_all_data().process_data()
+    pipeline.download_all().process_data()
 
 
 if __name__ == '__main__':
