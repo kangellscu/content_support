@@ -67,6 +67,7 @@ from config import config
 import pendulum
 import re
 import time
+import shutil
 
 class WechatDataFetcher:
 
@@ -85,15 +86,21 @@ class WechatDataFetcher:
         self.tmp_data_dir = Path(config.root_dir) / 'tmp/data/wechat'
 
     def login(self, remember=True):
+        # 确保self.tmp_data_dir存在
+        if not self.tmp_data_dir.exists():
+            self.tmp_data_dir.mkdir(parents=True)
+        # 清空self.tmp_data_dir下所有文件
+        for item in self.tmp_data_dir.iterdir():
+            if item.is_file():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+                
         session_dir = Path(config.root_dir) / 'tmp/session/wechat/'
         if not session_dir.exists():
             session_dir.mkdir(parents=True)
         session_path = session_dir / 'wechat_session.json'
 
-        # 确保self.tmp_data_dir存在
-        if not self.tmp_data_dir.exists():
-            self.tmp_data_dir.mkdir(parents=True)
-        
         # 定义通用的浏览器配置和headers
         user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3',
