@@ -29,7 +29,7 @@ class Locker:
         lock_dir = self.file_name.parent
         if not lock_dir.exists():
             lock_dir.mkdir(parents=True, exist_ok=True)
-        self.file = open(str(self.file_name), 'w')
+        self.file = open(str(self.file_name), 'r+')
         try:
             fcntl.flock(self.file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -39,7 +39,7 @@ class Locker:
 
     def release(self):
         if self.file:
-            fcntl.flock(self.file.fileno(), fcntl.LOCK_UN)
+            fcntl.flock(self.file.fileno(), fcntl.LOCK_UN)  # 仅释放文件锁，不会清空文件内容
             self.file.close()
             self.file = None
 
@@ -56,8 +56,8 @@ class Locker:
 
         def set(self, data):
             self.file.seek(0)
-            json.dump(data, self.file)
-            self.file.truncate()
+            self.file.truncate()  # 先清空文件内容
+            json.dump(data, self.file)  # 再写入新数据
 
     def __enter__(self):
         self.lock()
