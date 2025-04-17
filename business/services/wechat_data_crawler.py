@@ -11,10 +11,16 @@
             描述: 按日,分渠道汇总账号的 日期|阅读次数|阅读人数|分享次数|分享人数|阅读原文次数|阅读原文人数|收藏次数|收藏人数|群发篇|渠道
             时效: 因为以日为维度, 数据一旦生成, 就不会变化。           
             操作: 在左侧导航栏，展开“数据分析”菜单，点击“内容分析”，找到“下载数据明细”链接，点击下载账号维度的运营数据。
+            字段说明:
+                分享次数: 用户转发或分享到好友会话、群聊、朋友圈及点击朋友"爱心"的次数
         3.2 已通知内容数据
             描述: 按文章维度汇总账号的 发表时间|总阅读人数|总阅读次数|总分享人数|分享次数|阅读后关注人数|送达人数|公众号消息阅读次数|送达阅读率|首次分享次数|分享产生阅读次数|首次分享率|首次分享带来阅读次数|阅读完成率|内容url
             时效: 因为以文章为维度, 数据会随着时间的推移而变化, 单篇文章发表7日后, 就不会更新了。
             操作: 点击“内容分析”页面顶部的tab:已通知内容,然后点击”下载数据明细“,该数据是以文章为维度,统计文章发表后7日内的数据。
+            字段说明:
+                阅读后关注人数: 阅读本篇发表后，通过官方途径，进入公众号主页关注的用户数
+                送达阅读率: 公众号消息的阅读次数/消息群发送达的人数
+                阅读完成率: 阅读完成该图文的人数/阅读该图文总人数
         3.3 单篇文章详情数据
             描述: 按文章维度汇总账号数据, 其中包含多个表, 如下:
                 数据概况: 阅读次数|平均停留时长(s)|完读率|阅读后关注人数|分享次数|在看次数|点赞次数|赞赏(分)|评论(条)|互动率
@@ -26,6 +32,18 @@
                 地域分布: 省份/直辖市|人数|占比
             时效: 数据会随着时间的推移而变化, 单篇文章发表30日后, 就不会更新了。注意: 数据趋势明细已有的日期数据不会更新, 只会新增日期数据。             
             操作: 在“已通知内容“页面, 点击”详情“, 进入到文章详情页面, 点击”下载数据明细“, 该数据是处理特定文章的运营数据。
+            字段说明:
+                送达人数: 内容群发时，送达的人数 
+                公众号消息阅读次数: 内容在公众号会话及公众号列表的阅读次数
+                首次分享次数: 用户在公众号会话及公众号列表阅读完后，转发或分享到好友会话、群聊、朋友圈及点击朋友“爱心”的次数，不包括非粉丝的点击
+                总分享次数: 用户转发或分享到好友会话、群聊、朋友圈及点击朋友“爱心”的次数，包括非粉丝的点击
+                分享产生的阅读次数: 由用户分享带来的阅读次数，即阅读来源为好友会话、群聊、朋友圈、朋友“爱心”的阅读次数
+                曝光次数: 内容在公众号推荐场景出现的次数
+                阅读次数: 内容在公众号推荐场景的阅读次数
+                阅读率: 阅读次数/曝光次数
+                读后关注次数: 用户在公众号推荐场景看完内容后关注的次数
+                读后关注率: 读后关注次数/阅读次数
+                分享次数: 在不同传播渠道中，转发或分享到好友会话、群聊、朋友圈及点击朋友“爱心"的人数及次数
 
         注意，
         1) 以上下载的数据都要先放到tmp/data/wechat目录下,然后再进行处理。
@@ -33,6 +51,11 @@
     4. 处理datas/tmp目录下的文件
         4.1 根据账号名称,检查datas/wechat_operation_data/账号名称目录是否存在，如果不存在，则创建该目录。
         4.2 处理完之后的数据,更新到datas/wechat_operation_data/账号名称 目录下
+
+    5. 公众号概念及元数据说明
+        5.1 渠道:
+            1) 推荐: 该渠道包括看一看、图文页底部相关推荐等场景
+            2) 公众号消息: 公众号回话、公众号列表中的非看一看区域内容
 """
 
 import os
@@ -61,7 +84,7 @@ class WechatDataFetcher:
             self.end_date = end_date
         self.tmp_data_dir = Path(config.root_dir) / 'tmp/data/wechat'
 
-    def login(self, remenber=True):
+    def login(self, remember=True):
         session_dir = Path(config.root_dir) / 'tmp/session/wechat/'
         if not session_dir.exists():
             session_dir.mkdir(parents=True)
@@ -80,15 +103,20 @@ class WechatDataFetcher:
         
         self.browser = self.p.chromium.launch(headless=False, downloads_path=self.tmp_data_dir)
         headers = {'User-Agent': random.choice(user_agents)}
-        self.page = self.browser.new_page(extra_http_headers=headers)
         
-        if remenber and os.path.exists(session_path):
-            self.page.context.storage_state(path=session_path)
-        
+        # 根据是否记住登录状态创建不同的上下文
+        if remember and os.path.exists(session_path):
+            context = self.browser.new_context(storage_state=session_path, extra_http_headers=headers)
+        else:
+            context = self.browser.new_context(extra_http_headers=headers)
+            
+        self.page = context.new_page()
         self.page.goto('https://mp.weixin.qq.com/')
         print('请扫码登录微信公众号后台...')
         self.page.wait_for_url('https://mp.weixin.qq.com/*')
-        if remenber:
+        
+        # 登录成功后保存session
+        if remember:
             self.page.context.storage_state(path=session_path)
 
         # 等待导航栏加载完成
