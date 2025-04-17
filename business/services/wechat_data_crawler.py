@@ -152,13 +152,15 @@ class WechatDataFetcher:
         account_name = self.page.text_content('div.account_box-body > span.acount_box-nickname')
         self.account_name = account_name.strip()
 
-    def cal_begin_date(self):
+    def cal_begin_date(self, begin_back_days=0):
         """
         计算开始日期，逻辑如下：
         1. 如果self.begin_date is not None, 则返回self.begin_date
         2. 使用Locker获取锁, 读取tmp/locks/wechat_operation_data.lock文件, 根据self.account_name, 获取value
         3. 如果value is not None, 则返回value
         4. 如果value is None, 则返回self.begin_date距离昨天30日前的日期
+
+        @params begin_back_days 如果locker文件记录了上次执行的日期, 则返回距离该日期begin_back_days日前的日期
         """
         if self.begin_date is not None:
             return self.begin_date
@@ -168,7 +170,12 @@ class WechatDataFetcher:
             last_download_date = data.get(self.account_name, None)
         # 如果last_download_date is not None, 其格式为'2023-01-01', 转化为pendulum.date对象
         if last_download_date is not None:
-            return pendulum.from_format(last_download_date, 'YYYY-MM-DD')
+            begin_date = pendulum.from_format(last_download_date, 'YYYY-MM-DD')
+            # 如果begin_date为今天, 则退出程序, 提示用户不要重复下载
+            if begin_date == pendulum.now().date():
+                print('今天已经下载过数据了, 请不要重复下载')
+                exit(1)
+            return begin_date - pendulum.duration(days=begin_back_days)  
         # 如果last_download_date is None, 则返回self.begin_date距离昨天30日前的日期
         return pendulum.now() - pendulum.duration(days=30) 
 
@@ -227,7 +234,7 @@ class WechatDataFetcher:
 
         # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
-        _pick_date(self.cal_begin_date(), self.end_date, self.page, date_picker_parent)
+        _pick_date(self.cal_begin_date(7), self.end_date, self.page, date_picker_parent)
 
         self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / 'article_7d_data.xlsx')
 
@@ -246,7 +253,7 @@ class WechatDataFetcher:
 
         # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
-        _pick_date(self.cal_begin_date(), self.end_date, self.page, date_picker_parent)
+        _pick_date(self.cal_begin_date(30), self.end_date, self.page, date_picker_parent)
         
         def process_articles():
             """处理文章表格数据，包括等待表格加载和处理每行数据"""
