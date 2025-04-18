@@ -285,6 +285,9 @@ class WechatDataFetcher:
                     self.page.evaluate('window.scrollBy(0, 100);')
                     time.sleep(0.5)
 
+                # 随机等待
+                time.sleep(random.uniform(0.5, 2))
+
                 # 打开详情链接，会新开标签页
                 with self.page.context.expect_page() as new_page_info:
                     a_tag.click()
@@ -342,4 +345,4 @@ class WechatDataFetcher:
         while not path.exists():
             if (pendulum.now() - start_time).total_seconds() > timeout:
                 raise TimeoutError('文件下载超时')
-            pendulum.sleep(1)
+            time.sleep(1)
