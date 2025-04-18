@@ -22,7 +22,7 @@ def run():
     traffic_path = Path(config.root_dir) / "tmp/data/wechat/traffic_data.xlsx"
     article_7d_path = Path(config.root_dir) / "tmp/data/wechat/article_7d_data.xlsx"
     article_detail_paths = [
-        Path(config.root_dir) / "tmp/data/wechat/历史上人们改姓原因千千万，但这3家貌似改的也太随便了点。.xlsx",
+        Path(config.root_dir) / "tmp/data/wechat/历史上人们改姓原因千千万，但这3家貌似改的也太随便了点.xlsx",
         Path(config.root_dir) / "tmp/data/wechat/如今的中国人中还有匈奴后裔吗？.xlsx",
         Path(config.root_dir) / "tmp/data/wechat/真靠谱吗？广东竟然生活着两支鲜卑皇族后裔.xlsx",
     ]
