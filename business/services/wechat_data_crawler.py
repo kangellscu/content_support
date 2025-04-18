@@ -196,7 +196,10 @@ class WechatDataFetcher:
             data[self.account_name] = pendulum.now().format('YYYY-MM-DD')
             lock_file.set(data)
 
-        return traffic_path, article_7d_path, article_detail_paths
+        return {
+            "account_name": self.account_name,
+            "download_paths":  [traffic_path, article_7d_path, article_detail_paths]
+        }
 
     def download_traffic_data(self):
         self.page.click('text=数据分析')

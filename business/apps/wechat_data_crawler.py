@@ -1,14 +1,8 @@
-import os
-import pandas as pd
-from playwright.sync_api import sync_playwright
-import random
-from pathlib import Path
-from config import config
-from tools.locker import Locker
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import pendulum
-import re
-import time
-import shutil
+
 
 from business.services.wechat_data_crawler import WechatDataFetcher
 from business.services.wechat_data_process import WechatDataAnalyzer
@@ -17,10 +11,12 @@ from business.services.wechat_data_process import WechatDataAnalyzer
 def run():
     # 下载所有数据
     crawler = WechatDataFetcher()
-    crawler.download_all()
+    download_info = crawler.download_all()
+    account_name = download_info["account_name"]
+    traffic_path, article_7d_path, article_detail_paths = download_info["download_paths"]
 
     # 处理数据
-    processor = WechatDataAnalyzer()
+    processor = WechatDataAnalyzer(account_name, traffic_path, article_7d_path, article_detail_paths)
     processor.process_data()
 
 
