@@ -14,9 +14,11 @@ class WechatDataAnalyzer:
         下载文件中新的数据合并到本地文件中即可
         处理流程:
         1. 检查下载文件, 将渠道为"全部"的数据提取出来, 单独保存为traffic_summary, 剩余的部分保存为traffic 
-        1. 检查本地文件traffic.csv是否存在, 如果不存在, 则将traffic_summary, traffic创建本地同名文件
-        2. 如果本地文件traffic_summary.csv存在, 则读取本地文件, 将traffic_summary和traffic合并到本地文件中
-        3. 合并后的数据按照日期倒序排序, 并保存到本地文件中
+        2. 检查本地文件traffic.csv是否存在, 如果不存在, 则traffic创建本地同名文件
+        3. 检查本地文件traffic_summary.csv是否存在, 如果不存在, 则将traffic_summary创建本地同名文件
+        4. 如果本地文件存在, 则读取本地文件和traffic, 将traffic中的数据合并到本地文件中, 合并时同时检查"日期","渠道"字段检查是否存在重复记录, 如果存在重复的"日期", "渠道"记录, 则保留traffic记录, 并将本地文件中重复的记录删除
+        5. 如果本地文件存在, 则读取本地文件和traffic_summary, 将traffic_summary中的数据合并到本地文件中, 合并时同时检查"日期"字段检查是否存在重复记录, 如果存在重复的"日期"记录, 则保留traffic_summary记录, 并将本地文件中重复的记录删除
+        6. 合并后的数据按照日期倒序排序, 并保存到本地文件中
     - 处理7天内文章数据
         7天内文章数据是按文章标题组织的, 文章发表7日内, 微信会更新文章数据, 因此需要更新本地文件
         处理流程:
@@ -60,11 +62,13 @@ class WechatDataAnalyzer:
         self.traffic_path = traffic_path
         self.article_7d_path = article_7d_path
         self.article_detail_paths = article_detail_paths or []
-        
-        # 确保数据目录存在
-        self.data_dir = f'datas/wechat_operation_data/{self.account_name}'
-        if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir)
+        self.send_dir = Path(config.wechat_opt_data_dir) / self.account_name
+        self.data_dir = Path(config.root_dir) / 'datas/wechat_operation_data' / self.account_name
+        # 检查self.send_dir 和 self.data_dir是否存在, 如果不存在, 则创建
+        if not self.send_dir.exists():
+            self.send_dir.mkdir(parents=True)
+        if not self.data_dir.exists():
+            self.data_dir.mkdir(parents=True)
 
     def process_data(self):
         self.process_traffic_data()
@@ -78,28 +82,45 @@ class WechatDataAnalyzer:
         """
         if self.traffic_path:
             traffic_df = pd.read_excel(self.traffic_path)
-            # 这里可以添加具体的数据处理逻辑
-            traffic_df.to_excel(os.path.join(self.data_dir, 'traffic.xlsx'), index=False)
+            # 提取渠道为"全部"的数据
+            traffic_summary = traffic_df[traffic_df['渠道'] == '全部']
+            traffic = traffic_df[traffic_df['渠道'] != '全部']
+
+            # 检查本地文件是否存在
+            traffic_summary_path = self.data_dir / 'traffic_summary.csv'
+            traffic_path = self.data_dir / 'traffic.csv'
+
+            if traffic_summary_path.exists():
+                local_traffic_summary = pd.read_csv(traffic_summary_path)
+                # 合并时检查"日期"字段的重复记录，保留traffic_summary记录
+                local_traffic_summary = local_traffic_summary[~local_traffic_summary['日期'].isin(traffic_summary['日期'])]
+                traffic_summary = pd.concat([local_traffic_summary, traffic_summary], ignore_index=True)
+
+            if traffic_path.exists():
+                local_traffic = pd.read_csv(traffic_path)
+                # 合并时检查"日期"和"渠道"字段的重复记录，保留traffic记录
+                local_traffic = local_traffic[~local_traffic[['日期', '渠道']].apply(tuple, axis=1).isin(traffic[['日期', '渠道']].apply(tuple, axis=1))]
+                traffic = pd.concat([local_traffic, traffic], ignore_index=True)
+
+            # 合并后的数据按照日期倒序排序
+            if not traffic_summary.empty:
+                traffic_summary = traffic_summary.sort_values(by='日期', ascending=False)
+            if not traffic.empty:
+                traffic = traffic.sort_values(by='日期', ascending=False)
+
+            # 保存到本地文件
+            if not traffic_summary.empty:
+                traffic_summary.to_csv(traffic_summary_path, index=False)
+            if not traffic.empty:
+                traffic.to_csv(traffic_path, index=False)
 
     def process_article_7d_data(self):
-        """
-        处理7天内文章数据
-        """
-        if self.article_7d_path:
-            article_7d_df = pd.read_excel(self.article_7d_path)
-            # 这里可以添加具体的数据处理逻辑
-            article_7d_df.to_excel(os.path.join(self.data_dir, 'article_7d.xlsx'), index=False)  
+        """处理7天内文章数据"""
+        pass
 
     def process_article_detail_data(self):
-        """
-        处理文章详情数据
-        """
-        if self.article_detail_paths:
-            all_articles = []
-            for path in self.article_detail_paths:
-                article_df = pd.read_excel(path)
-                all_articles.append(article_df)
-            all_articles_df = pd.concat(all_articles, ignore_index=True)
+        """处理文章详情数据"""
+        pass
 
     def send_processed_data(self):
         # 发送处理后的数据

@@ -9,4 +9,4 @@ root_dir = os.environ.get('ROOT_DIR')
 parallel_num = int(os.environ.get('PARALLEL_NUM'))
 
 # Wechat
-wechat_opt_date_dir = os.environ.get('WECHAT_OPT_DATE_DIR')
+wechat_opt_data_dir = os.environ.get('WECHAT_OPT_DATA_DIR')
