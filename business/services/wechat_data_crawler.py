@@ -185,9 +185,9 @@ class WechatDataFetcher:
         self.prepare()
         self.login()
         self.fetch_account_name()
-        self.download_traffic_data()
-        self.download_article_7d_data()
-        #self.download_article_detail_data()
+        traffic_path = self.download_traffic_data()
+        article_7d_path = self.download_article_7d_data()
+        article_detail_paths = self.download_article_detail_data()
         self.browser.close()
 
         # 清理，获取账号名称，更新locker文件，值为今天的日期，使用pendulum处理，格式为'2023-01-01'
@@ -195,6 +195,8 @@ class WechatDataFetcher:
             data = lock_file.get()
             data[self.account_name] = pendulum.now().format('YYYY-MM-DD')
             lock_file.set(data)
+
+        return traffic_path, article_7d_path, article_detail_paths
 
     def download_traffic_data(self):
         self.page.click('text=数据分析')
@@ -219,7 +221,9 @@ class WechatDataFetcher:
 
         # 根据self.cal_begin_date()和self.end_date来选择下载的日期范围
         wechat_date_picker.pick_date(self.cal_begin_date(), self.end_date, self.page, self.page.query_selector('//form[@class="mass_all_filter"]'))
-        self._wait_for_download(lambda: first_download_link.click(), self.tmp_data_dir / 'traffic_data.xlsx')
+        download_file_path = self.tmp_data_dir / 'traffic_data.xlsx'
+        self._wait_for_download(lambda: first_download_link.click(), download_file_path)
+        return download_file_path        
 
     def download_article_7d_data(self):
         # 检查“内容分析”是否可见
@@ -238,7 +242,9 @@ class WechatDataFetcher:
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
         wechat_date_picker.pick_date(self.cal_begin_date(7), self.end_date, self.page, date_picker_parent)
 
-        self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / 'article_7d_data.xlsx')
+        download_file_path = self.tmp_data_dir / 'article_7d_data.xlsx'
+        self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), download_file_path)
+        return download_file_path
 
     def download_article_detail_data(self):
         # 检查“内容分析”是否可见
@@ -257,6 +263,7 @@ class WechatDataFetcher:
         date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')
         wechat_date_picker.pick_date(self.cal_begin_date(30), self.end_date, self.page, date_picker_parent)
         
+        download_file_paths = []
         def process_articles():
             """处理文章表格数据，包括等待表格加载和处理每行数据"""
             # 等待表格加载完成
@@ -290,7 +297,9 @@ class WechatDataFetcher:
                     # 随机等待
                     time.sleep(random.uniform(1, 5))
                     # 在新页面中点击下载
-                    self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / f'{title}.xlsx', new_page)
+                    download_file_path = self.tmp_data_dir / f'{title}.xlsx'
+                    self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), download_file_path, new_page)
+                    download_file_paths.append(download_file_path)
 
                     # 模拟人类操作行为
                     time.sleep(random.uniform(0.5, 3))
@@ -312,6 +321,8 @@ class WechatDataFetcher:
             self.page.evaluate('window.scrollTo(0, 0);')
             # 处理文章
             process_articles()
+
+        return download_file_paths
 
         
     def _wait_for_download(self, click_action, path=None, page=None, timeout=60):
