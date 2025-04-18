@@ -70,6 +70,7 @@ import re
 import time
 import shutil
 
+
 class WechatDataFetcher:
 
     def __init__(self, begin_date=None, end_date=None):
@@ -289,6 +290,11 @@ class WechatDataFetcher:
                     time.sleep(random.uniform(1, 5))
                     # 在新页面中点击下载
                     self._wait_for_download(lambda: new_page.click('a:has-text("下载数据明细")'), self.tmp_data_dir / f'{title}.xlsx', new_page)
+
+                    # 模拟人类操作行为
+                    time.sleep(random.uniform(0.5, 3))
+                    scroll_distance = random.randint(100, 500)
+                    new_page.evaluate(f'window.scrollBy(0, {scroll_distance});')
                 finally:
                     # 关闭新标签页并切换回原页面
                     new_page.close()
@@ -322,56 +328,6 @@ class WechatDataFetcher:
             if (pendulum.now() - start_time).total_seconds() > timeout:
                 raise TimeoutError('文件下载超时')
             pendulum.sleep(1)
-
-
-class WechatDataAnalyzer:
-    def __init__(self, account_name):
-        self.account_name = account_name
-        self.data_dir = f'datas/wechat_operation_data/{self.account_name}'
-        if not os.path.exists(self.data_dir):
-            os.makedirs(self.data_dir)
-
-    def process_data(self):
-        tmp_dir = 'datas/tmp'
-        for file in os.listdir(tmp_dir):
-            if file.endswith('.xlsx'):
-                file_path = os.path.join(tmp_dir, file)
-                df = pd.read_excel(file_path)
-                # 这里可以添加具体的数据处理逻辑
-                new_file_path = os.path.join(self.data_dir, file)
-                df.to_excel(new_file_path, index=False)
-
-        self._clean_tmp_dir()
-
-    def _clean_tmp_dir(self):
-        tmp_dir = 'datas/tmp'
-        for file in os.listdir(tmp_dir):
-            file_path = os.path.join(tmp_dir, file)
-            os.remove(file_path)
-
-
-class WechatDataPipeline:
-
-    def __init__(self, begin_date=None, end_date=None):
-        self.analyzer = None
-        self.fetcher = WechatDataFetcher(begin_date, end_date)
-
-    def login(self):
-        self.fetcher.login()
-        return self
-
-    def fetch_account_name(self):
-        account_name = self.fetcher.fetch_account_name()
-        self.analyzer = WechatDataAnalyzer(account_name)
-        return self
-
-    def download_all(self):
-        self.fetcher.download_all()
-        return self
-
-    def process_data(self):
-        self.analyzer.process_data()
-        return self
 
 
 def _pick_date(begin: pendulum.DateTime, end: pendulum.DateTime, page, parent):
@@ -466,13 +422,3 @@ def _pick_date(begin: pendulum.DateTime, end: pendulum.DateTime, page, parent):
 
     # 关闭picker
     picker_icon.click()
-
-
-
-def run():
-    pipeline = WechatDataPipeline()
-    pipeline.download_all().process_data()
-
-
-if __name__ == '__main__':
-    run()
