@@ -1,4 +1,5 @@
 import pandas as pd
+import shutil
 from pathlib import Path
 from config import config
 
@@ -281,5 +282,6 @@ class WechatDataAnalyzer:
 
 
     def send_processed_data(self):
-        # 发送处理后的数据
-        pass
+        for file_path in self.data_dir.glob('*.csv'):
+            destination = self.send_dir / file_path.name
+            shutil.copy2(file_path, destination)
