@@ -2,7 +2,6 @@ import os
 import pandas as pd
 from pathlib import Path
 from config import config
-from tools.locker import Locker
 import pendulum
 
 
