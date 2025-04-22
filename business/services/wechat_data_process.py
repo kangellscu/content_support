@@ -126,11 +126,13 @@ class WechatDataAnalyzer:
             self.data_dir.mkdir(parents=True)
 
     def process_data(self):
+        print('开始处理微信运营数据...')
         self.process_traffic_data()
         self.process_article_7d_data()
         self.process_article_detail_data()
         self.process_user_growth_data()
         self.send_processed_data()
+        print('微信运营数据处理完成.')
 
     def process_traffic_data(self):
         """
