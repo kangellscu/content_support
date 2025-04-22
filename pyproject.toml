@@ -16,6 +16,7 @@ dotenv = "^0.9.9"
 tqdm = "^4.67.1"
 pendulum = "^3.0.0"
 xlrd = "^2.0.1"
+bs4 = "^0.0.2"
 
 [[tool.poetry.source]]
 name = "tsinghua"

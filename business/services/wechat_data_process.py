@@ -2,6 +2,7 @@ import pandas as pd
 import shutil
 from pathlib import Path
 from config import config
+from bs4 import BeautifulSoup  # 导入 BeautifulSoup
 
 
 class WechatDataAnalyzer:
@@ -72,14 +73,50 @@ class WechatDataAnalyzer:
             2. 检查本地文件article_region_distribution.csv是否存在, 如果不存在, 则直接将detail_region_distribution创建本地文件
             3. 如果本地文件存在, 则读取本地文件和detail_region_distribution, 根据"文章标题"将detail_region_distribution中的数据合并到本地文件中, 如果存在重复的"文章标题"记录, 则保留detail_region_distribution记录, 并将本地文件中重复的记录删除
             4. 合并后的数据按照日期倒序排序, 并保存到本地文件中
+    - 处理用户增长数据
+        用户增长数据是按日期组织的, 微信一旦生成, 该日的数据就会固定, 不需要更新, 因此只需要检查下载的文件和本地文件, 将下载文件中新的数据合并到本地文件中即可
+        处理流程:
+        1. 检查下载文件, 该文件的后缀名为xlsx, 但实际为: html文档, 因此应该视为html进行处理，数据包含在<table>中, <tr class="header">为表头，后面的<tr>为数据行, 表头和数据行的标签可能有其它class, 不需要关注. 数据格式如下
+            <Example>
+                <table>
+                    <colgroup>
+                        <col class="td"/> </col class="td"/>
+                        <col class="td"/> <col class="td"/>
+                    </colgroup>
+                    <tr>
+                        <th> 用户增长（2025-03-22至2025-04-21） </th>
+                    </tr>
+                    <tr class="header">
+                        <th> 时间 </th>
+                        <th> 新关注人数 </th>
+                        <th> 取消关注人数 </th>
+                        <th> 净增关注人数 </th>
+                        <th> 累积关注人数 </th>
+                    </tr>
+                    <tr>
+                        <th> 2025-04-21 </th>
+                        <th> 0 </th>
+                        <th> 0 </th>
+                        <th> 0 </th>
+                        <th> 0 </th>
+                    </tr> 
+                </table>
+            </Example>
+            读取完成后, 使用pandas转换为dataframe, 保存为user_growth
+        2. user_growth第一行要删除, 第二行作为列名, 第三行开始为数据
+        2. 检查本地文件user_growth.csv是否存在, 如果不存在, 则将user_growth创建本地同名文件
+        3. 如果本地文件存在, 则读取本地文件和user_growth, 将user_growth中的数据合并到本地文件中, 合并时同时检查"时间"字段检查是否存在重复记录, 如果存在重复的"时间"记录, 则保留user_growth记录, 并将本地文件中重复的记录删除
+        4. 合并后的数据按照日期倒序排序, 并保存到本地文件中
+
     - 发送处理后的数据
         将本地处理后的数据复制到指定目录下, 目录为: config.wechat_opt_data_dir.  复制过程中，如果文件存在, 则覆盖
     """
-    def __init__(self, account_name, traffic_path=None, article_7d_path=None, article_detail_paths=None):
+    def __init__(self, account_name, traffic_path=None, article_7d_path=None, article_detail_paths=None, user_growth_path=None):
         self.account_name = account_name
         self.traffic_path = traffic_path
         self.article_7d_path = article_7d_path
         self.article_detail_paths = article_detail_paths or []
+        self.user_growth_path = user_growth_path
         self.send_dir = Path(config.wechat_opt_data_dir) / self.account_name
         self.data_dir = Path(config.root_dir) / 'datas/wechat_operation_data' / self.account_name
         # 检查self.send_dir 和 self.data_dir是否存在, 如果不存在, 则创建
@@ -92,6 +129,7 @@ class WechatDataAnalyzer:
         self.process_traffic_data()
         self.process_article_7d_data()
         self.process_article_detail_data()
+        self.process_user_growth_data()
         self.send_processed_data()
 
     def process_traffic_data(self):
@@ -280,6 +318,59 @@ class WechatDataAnalyzer:
                     detail_region_distribution = detail_region_distribution.sort_values(by='文章标题', ascending=False)
                     detail_region_distribution.to_csv(article_region_distribution_path, index=False)
 
+    def process_user_growth_data(self):
+        """
+        处理用户增长数据
+        """
+        if self.user_growth_path:
+            try:
+                # 读取 HTML 文件
+                with open(self.user_growth_path, 'r', encoding='utf-8') as file:
+                    html_content = file.read()
+                
+                # 使用 BeautifulSoup 解析 HTML
+                soup = BeautifulSoup(html_content, 'html.parser')
+                table = soup.find('table')
+                if not table:
+                    print(f"未在 {self.user_growth_path} 中找到表格数据")
+                    return
+                
+                # 提取表头
+                header_row = table.find('tr', class_='header')
+                if not header_row:
+                    print(f"未在 {self.user_growth_path} 的表格中找到表头")
+                    return
+                headers = [th.get_text(strip=True) for th in header_row.find_all('th')]
+                
+                # 提取数据行
+                data_rows = []
+                for row in header_row.find_all_next('tr'):
+                    cells = [td.get_text(strip=True) for td in row.find_all('th')]
+                    if cells:
+                        data_rows.append(cells)
+                
+                # 创建 DataFrame
+                user_growth = pd.DataFrame(data_rows, columns=headers)
+
+            except Exception as e:
+                print(f"读取 {self.user_growth_path} 时出错: {e}")
+                return
+
+            # 检查本地文件是否存在
+            user_growth_csv_path = self.data_dir / 'user_growth.csv'
+            if user_growth_csv_path.exists():
+                # 读取本地文件
+                local_user_growth = pd.read_csv(user_growth_csv_path)
+                # 合并时检查“时间”字段的重复记录，保留 user_growth 记录
+                local_user_growth = local_user_growth[~local_user_growth['时间'].isin(user_growth['时间'])]
+                user_growth = pd.concat([local_user_growth, user_growth], ignore_index=True)
+
+            # 合并后的数据按照日期倒序排序
+            if not user_growth.empty:
+                user_growth['时间'] = pd.to_datetime(user_growth['时间'])
+                user_growth = user_growth.sort_values(by='时间', ascending=False)
+                # 保存到本地文件
+                user_growth.to_csv(user_growth_csv_path, index=False)
 
     def send_processed_data(self):
         for file_path in self.data_dir.glob('*.csv'):

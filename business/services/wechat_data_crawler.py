@@ -48,17 +48,23 @@
         注意，
         1) 以上下载的数据都要先放到tmp/data/wechat目录下,然后再进行处理。
         2) 每次下载前,需要清理tmp/data/wechat目录下的文件。
-    4. 处理datas/tmp目录下的文件
-        4.1 根据账号名称,检查datas/wechat_operation_data/账号名称目录是否存在，如果不存在，则创建该目录。
-        4.2 处理完之后的数据,更新到datas/wechat_operation_data/账号名称 目录下
+    4. 下载用户增长数据
+        4.1 粉丝增长数据
+            描述: 按日,汇总账号的粉丝数据, 字段为: 时间|新关注人数|取消关注人数|净增关注人数|累计关注人数
+            时效: 因为以日为维度, 数据一旦生成, 就不会变化。
+            操作: 在左侧导航栏，展开“数据分析”菜单，点击“用户分析”，向下滚动页面，知道找到“下载表格”链接，点击下载账号维度的粉丝增长数据。
+    5. 处理datas/tmp目录下的文件
+        5.1 根据账号名称,检查datas/wechat_operation_data/账号名称目录是否存在，如果不存在，则创建该目录。
+        5.2 处理完之后的数据,更新到datas/wechat_operation_data/账号名称 目录下
 
-    5. 公众号概念及元数据说明
-        5.1 渠道:
+    6. 公众号概念及元数据说明
+        6.1 渠道:
             1) 推荐: 该渠道包括看一看、图文页底部相关推荐等场景
             2) 公众号消息: 公众号回话、公众号列表中的非看一看区域内容
 """
 
 import os
+from numpy import arange
 import pandas as pd
 from playwright.sync_api import sync_playwright
 import random
@@ -188,6 +194,7 @@ class WechatDataFetcher:
         traffic_path = self.download_traffic_data()
         article_7d_path = self.download_article_7d_data()
         article_detail_paths = self.download_article_detail_data()
+        user_growth_path = self.download_user_data()
         self.browser.close()
 
         # 清理，获取账号名称，更新locker文件，值为今天的日期，使用pendulum处理，格式为'2023-01-01'
@@ -196,9 +203,11 @@ class WechatDataFetcher:
             data[self.account_name] = pendulum.now().format('YYYY-MM-DD')
             lock_file.set(data)
 
+        print("下载完成...")
+
         return {
             "account_name": self.account_name,
-            "download_paths":  [traffic_path, article_7d_path, article_detail_paths]
+            "download_paths":  [traffic_path, article_7d_path, article_detail_paths, user_growth_path]
         }
 
     def download_traffic_data(self):
@@ -346,3 +355,29 @@ class WechatDataFetcher:
             if (pendulum.now() - start_time).total_seconds() > timeout:
                 raise TimeoutError('文件下载超时')
             time.sleep(1)
+
+    def download_user_data(self):
+        # 检查“内容分析”是否可见
+        if not self.page.is_visible('text=用户分析'):
+            self.page.click('text=数据分析')
+            time.sleep(random.uniform(0.5, 3))
+        self.page.click('text=用户分析')
+        # 随机等待
+        time.sleep(random.uniform(0.5, 3))
+        # 随机滚动页面
+        scroll_distance = random.randint(100, 500)
+        self.page.evaluate(f'window.scrollBy(0, {scroll_distance});')
+
+        # 等待“下载表格”链接可见
+        self.page.wait_for_selector('text=下载表格', state='visible')
+        # 定位“下载表格”链接
+        download_link = self.page.query_selector('text=下载表格')
+        # 滑动到链接使其可见
+        self.page.evaluate('element => element.scrollIntoView()', download_link)
+        # 随机等待确保元素完全可见
+        time.sleep(random.uniform(0.5, 2))
+        # 根据self.cal_begin_date()和self.end_date来选择下载的日期范围
+        wechat_date_picker.pick_date(self.cal_begin_date(), self.end_date, self.page, self.page.query_selector('//div[@class="mass_all_filter_sticky"]'))
+        download_file_path = self.tmp_data_dir / 'user_growth_data.xlsx'
+        self._wait_for_download(lambda: download_link.click(), download_file_path)
+        return download_file_path
