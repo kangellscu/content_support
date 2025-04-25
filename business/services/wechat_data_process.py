@@ -119,9 +119,7 @@ class WechatDataAnalyzer:
         self.user_growth_path = user_growth_path
         self.send_dir = Path(config.wechat_opt_data_dir) / self.account_name
         self.data_dir = Path(config.root_dir) / 'datas/wechat_operation_data' / self.account_name
-        # 检查self.send_dir 和 self.data_dir是否存在, 如果不存在, 则创建
-        if not self.send_dir.exists():
-            self.send_dir.mkdir(parents=True)
+        # 检查self.data_dir是否存在, 如果不存在, 则创建
         if not self.data_dir.exists():
             self.data_dir.mkdir(parents=True)
 
@@ -375,6 +373,10 @@ class WechatDataAnalyzer:
                 user_growth.to_csv(user_growth_csv_path, index=False)
 
     def send_processed_data(self):
+        # 检查self.send_dir是否存在, 如果不存在, 则创建
+        if not self.send_dir.exists():
+            self.send_dir.mkdir(parents=True)
+        
         for file_path in self.data_dir.glob('*.csv'):
             destination = self.send_dir / file_path.name
             shutil.copy2(file_path, destination)
