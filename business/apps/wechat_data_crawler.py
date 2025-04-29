@@ -7,7 +7,7 @@ from config import config
 
 
 from business.services.wechat_data_crawler import WechatDataFetcher
-from business.services.wechat_data_process import WechatDataAnalyzer
+from business.services.wechat_data_process import WechatDataAnalyzer, WechatDataPublisher
 
 
 def run():
@@ -20,6 +20,10 @@ def run():
     # 处理数据
     processor = WechatDataAnalyzer(account_name, traffic_path, article_7d_path, article_detail_paths, user_growth_path=user_growth_path)
     processor.process_data()
+
+    # 发布数据
+    publisher = WechatDataPublisher(account_name)
+    publisher.publish()
 
 
 if __name__ == '__main__':

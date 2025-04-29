@@ -5,6 +5,27 @@ from config import config
 from bs4 import BeautifulSoup  # 导入 BeautifulSoup
 
 
+class WechatDataPublisher:
+    def __init__(self, account_name):
+        self.account_name = account_name
+        self.send_dir = Path(config.wechat_opt_data_dir) / self.account_name
+        self.data_dir = Path(config.root_dir) / 'datas/wechat_operation_data' / self.account_name
+        # 检查self.data_dir是否存在, 如果不存在, 则创建
+        if not self.data_dir.exists():
+            self.data_dir.mkdir(parents=True)
+
+    def publish(self):
+        print("开始发布微信运营数据...")
+        # 检查self.send_dir是否存在, 如果不存在, 则创建
+        if not self.send_dir.exists():
+            self.send_dir.mkdir(parents=True)
+
+        for file_path in self.data_dir.glob('*.csv'):
+            destination = self.send_dir / file_path.name
+            shutil.copy2(file_path, destination)
+        print("微信运营数据发布完成")
+
+
 class WechatDataAnalyzer:
     """
     微信运营数据处理类，用于处理微信运营数据并进行分析。接收下载好的数据文件路径，更新本地数据文件
@@ -129,7 +150,6 @@ class WechatDataAnalyzer:
         self.process_article_7d_data()
         self.process_article_detail_data()
         self.process_user_growth_data()
-        self.send_processed_data()
         print('微信运营数据处理完成.')
 
     def process_traffic_data(self):
@@ -371,12 +391,3 @@ class WechatDataAnalyzer:
                 user_growth = user_growth.sort_values(by='时间', ascending=False)
                 # 保存到本地文件
                 user_growth.to_csv(user_growth_csv_path, index=False)
-
-    def send_processed_data(self):
-        # 检查self.send_dir是否存在, 如果不存在, 则创建
-        if not self.send_dir.exists():
-            self.send_dir.mkdir(parents=True)
-        
-        for file_path in self.data_dir.glob('*.csv'):
-            destination = self.send_dir / file_path.name
-            shutil.copy2(file_path, destination)
