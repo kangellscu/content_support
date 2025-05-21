@@ -16,7 +16,8 @@ if __name__ == '__main__':
     # 解析命令行参数，获取要执行的任务列表
     # 创建参数解析器
     parser = argparse.ArgumentParser(description='命令行调用工具，支持执行不同的业务逻辑。')
-    parser.add_argument('tasks', nargs='*', help='要执行的任务列表')
+    parser.add_argument('task', help='要执行的任务')
+    parser.add_argument('extra_args', nargs='*', help='传递给路由方法的可选参数')
     parser.add_argument('-l', '--list', action='store_true', help='列出所有可用任务')
     args = parser.parse_args()
     # 获取要执行的任务列表
@@ -27,7 +28,7 @@ if __name__ == '__main__':
     except ImportError:
         print('无法导入config/routes.py模块。')
         sys.exit(1)
-    task_list = args.tasks
+    task_list = [args.task]
     if args.list:
         print('所有可用任务:')
         for route in routes:
@@ -43,7 +44,7 @@ if __name__ == '__main__':
                     print(module_name, func_name)
                     module = importlib.import_module(module_name)
                     func = getattr(module, func_name)
-                    func()
+                    func(*args.extra_args)
                     found = True
                     break
             if not found:

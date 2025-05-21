@@ -26,5 +26,10 @@ def run():
     publisher.publish()
 
 
+def publish_wechat_data(account_name):
+    publisher = WechatDataPublisher(account_name)
+    publisher.publish()
+    return True
+
 if __name__ == '__main__':
     run()
