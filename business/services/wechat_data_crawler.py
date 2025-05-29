@@ -99,8 +99,6 @@ class WechatDataFetcher:
         # 初始化结束日期范围
         if self.end_date is None:
             self.end_date = pendulum.now() - pendulum.duration(days=1)
-        else:
-            self.end_date = end_date
 
         # 确保self.tmp_data_dir存在
         if not self.tmp_data_dir.exists():
