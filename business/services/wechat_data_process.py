@@ -203,6 +203,9 @@ class WechatDataAnalyzer:
             unpub_article_7d['状态'] = '未发布'
             unpub_article_7d["送达人数"] = 0
             unpub_article_7d["送达阅读率"] = 0
+            # 过滤掉空或全 NA 条目
+            article_7d = article_7d.dropna(how='all')
+            unpub_article_7d = unpub_article_7d.dropna(how='all')
             # 合并article_7d和unpub_article_7d
             article_7d = pd.concat([article_7d, unpub_article_7d], ignore_index=True)
 

@@ -21,10 +21,12 @@ def run(begin_date=None, end_date=None):
     crawler = WechatDataFetcher(begin_date, end_date)
     download_info = crawler.download_all()
     account_name = download_info["account_name"]
-    traffic_path, article_7d_path, article_detail_paths, user_growth_path = download_info["download_paths"]
+    traffic_path, article_7d_path, unpub_article_7d_path, article_detail_paths, unpub_article_detail_paths, user_growth_path = download_info["download_paths"]
 
     # 处理数据
-    processor = WechatDataAnalyzer(account_name, traffic_path, article_7d_path, article_detail_paths, user_growth_path=user_growth_path)
+    processor = WechatDataAnalyzer(
+        account_name, traffic_path, article_7d_path, unpub_article_7d_path, 
+        article_detail_paths, unpub_article_detail_paths, user_growth_path=user_growth_path)
     processor.process_data()
 
     # 发布数据
