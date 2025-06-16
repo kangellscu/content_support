@@ -132,11 +132,14 @@ class WechatDataAnalyzer:
     - 发送处理后的数据
         将本地处理后的数据复制到指定目录下, 目录为: config.wechat_opt_data_dir.  复制过程中，如果文件存在, 则覆盖
     """
-    def __init__(self, account_name, traffic_path=None, article_7d_path=None, article_detail_paths=None, user_growth_path=None):
+    def __init__(self, account_name, traffic_path=None, article_7d_path=None, unpub_article_7d_path=None,
+        article_detail_paths=None, unpub_article_detail_paths=None, user_growth_path=None):
         self.account_name = account_name
         self.traffic_path = traffic_path
         self.article_7d_path = article_7d_path
+        self.unpub_article_7d_path = unpub_article_7d_path
         self.article_detail_paths = article_detail_paths or []
+        self.unpub_article_detail_paths = unpub_article_detail_paths or []
         self.user_growth_path = user_growth_path
         self.send_dir = Path(config.wechat_opt_data_dir) / self.account_name
         self.data_dir = Path(config.root_dir) / 'datas/wechat_operation_data' / self.account_name
@@ -195,7 +198,14 @@ class WechatDataAnalyzer:
         if self.article_7d_path:
             # 读取下载文件
             article_7d = pd.read_excel(self.article_7d_path)
-            
+            article_7d['状态'] = '已发布'
+            unpub_article_7d = pd.read_excel(self.unpub_article_7d_path)
+            unpub_article_7d['状态'] = '未发布'
+            unpub_article_7d["送达人数"] = 0
+            unpub_article_7d["送达阅读率"] = 0
+            # 合并article_7d和unpub_article_7d
+            article_7d = pd.concat([article_7d, unpub_article_7d], ignore_index=True)
+
             # 检查本地文件是否存在
             article_7d_path = self.data_dir / 'article_7d.csv'
             
@@ -217,6 +227,9 @@ class WechatDataAnalyzer:
 
     def process_article_detail_data(self):
         """处理文章详情数据"""
+        # 合并数据self.article_detail_paths和self.unpub_article_detail_paths
+        self.article_detail_paths = self.article_detail_paths + self.unpub_article_detail_paths
+
         for article_path in self.article_detail_paths:
             article_title = Path(article_path).stem
             # 读取文件
