@@ -44,6 +44,14 @@
                 读后关注次数: 用户在公众号推荐场景看完内容后关注的次数
                 读后关注率: 读后关注次数/阅读次数
                 分享次数: 在不同传播渠道中，转发或分享到好友会话、群聊、朋友圈及点击朋友“爱心"的人数及次数
+        3.4 未开启通知内容数据
+            描述：按文章纬度汇总“未开启通知内容“的数据，包括以下数据：发表时间|总阅读人数|总阅读次数|总分享人数|总分享次数|阅读后关注人数|公众号消息阅读次数|首次分享次数|分享产生阅读次数|首次分享率|首次分享带来阅读次数|阅读完成率|内容url
+            时效：因为以文章为维度, 数据会随着时间的推移而变化, 单篇文章发表7日后, 就不会更新了。
+            操作：点击“内容分析”页面顶部的tab:未开启通知内容,然后点击”下载数据明细“,该数据是以文章为维度,统计文章发表后7日内的数据。
+        3.5 单篇未开启通知内容文章详情数据
+            描述：按文章纬度汇总“未开启通知内容“的数据，文件结构与单篇文章详情数据一致。
+            时效：数据会随着时间的推移而变化, 单篇文章发表30日后, 就不会更新了。注意: 数据趋势明细已有的日期数据不会更新, 只会新增日期数据。
+            操作：在“未开启通知内容“页面, 点击”详情“, 进入到文章详情页面, 点击”下载数据明细“, 该数据是处理特定文章的运营数据。
 
         注意，
         1) 以上下载的数据都要先放到tmp/data/wechat目录下,然后再进行处理。
@@ -191,7 +199,9 @@ class WechatDataFetcher:
         self.fetch_account_name()
         traffic_path = self.download_traffic_data()
         article_7d_path = self.download_article_7d_data()
+        unpub_article_7d_path = self.download_unpub_article_7d_data()
         article_detail_paths = self.download_article_detail_data()
+        unpub_article_detial_paths = self.download_article_detail_data("未开启通知内容")
         user_growth_path = self.download_user_data()
         self.browser.close()
 
@@ -205,7 +215,7 @@ class WechatDataFetcher:
 
         return {
             "account_name": self.account_name,
-            "download_paths":  [traffic_path, article_7d_path, article_detail_paths, user_growth_path]
+            "download_paths":  [traffic_path, article_7d_path, unpub_article_7d_path, article_detail_paths, unpub_article_detial_paths, user_growth_path]
         }
 
     def download_traffic_data(self):
@@ -256,7 +266,31 @@ class WechatDataFetcher:
         self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), download_file_path)
         return download_file_path
 
-    def download_article_detail_data(self):
+    def download_unpub_article_7d_data(self):
+        """
+        下载“未开启通知内容“的数据，按文章维度统计文章发表后 7 日内的数据。
+        数据会先放到 tmp/data/wechat 目录下，下载前会清理该目录下的文件。
+        """
+        # 检查“内容分析”是否可见
+        if not self.page.is_visible('text=内容分析'):
+            self.page.click('text=数据分析')
+            time.sleep(random.uniform(0.5, 3))
+        self.page.click('text=内容分析')
+        # 随机等待
+        time.sleep(random.uniform(0.5, 3))
+        # 点击“未开启通知内容” tab
+        self.page.click('a:has-text("未开启通知内容")')
+        # 等待“下载明细数据”a标签可见
+        self.page.wait_for_selector('a:has-text("下载数据明细")', state='visible')
+        # 更精确地定位日期选择器的父元素，先找到包含日期选择器的面板
+        date_picker_parent = self.page.query_selector('div.weui-desktop-panel__bd form')    
+        wechat_date_picker.pick_date(self.cal_begin_date(7), self.end_date, self.page, date_picker_parent)
+
+        download_file_path = self.tmp_data_dir / 'unpub_article_7d_data.xlsx'
+        self._wait_for_download(lambda: self.page.click('a:has-text("下载数据明细")'), download_file_path)
+        return download_file_path
+
+    def download_article_detail_data(self, article_type='已通知内容'):
         # 检查“内容分析”是否可见
         if not self.page.is_visible('text=内容分析'):
             self.page.click('text=数据分析')
@@ -265,7 +299,7 @@ class WechatDataFetcher:
         # 随机等待
         time.sleep(random.uniform(0.5, 3))
         # 直接点击"已通知内容"的a标签
-        self.page.click('a:has-text("已通知内容")')
+        self.page.click(f'a:has-text("{article_type}")')
         # 确保class="weui-desktop-table"的表格加载
         self.page.wait_for_selector('table.weui-desktop-table', state='visible')
 
